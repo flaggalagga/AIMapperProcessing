@@ -21,10 +21,10 @@ jobs:
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     
     - name: Set up Python 3.11
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         python-version: 3.11
     
@@ -45,14 +45,9 @@ jobs:
         pytest tests/ --cov=etl_processing
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
-        fail_ci_if_error: true
-
-    - name: Upload coverage to Codecov
-    uses: codecov/codecov-action@v5
-    with:
         token: ${{ secrets.CODECOV_TOKEN }}
         file: ./coverage.xml
-        flags: github-tests
+        flags: docker-tests
         fail_ci_if_error: true
