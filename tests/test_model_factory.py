@@ -1,5 +1,6 @@
 # tests/test_model_factory.py
 import pytest
+import yaml
 from etl_processing.lib.model_factory import ModelFactory
 
 @pytest.fixture
@@ -27,19 +28,22 @@ class TestModelFactory:
         assert hasattr(model, 'name')
 
     def test_load_models(self, tmp_path):
-        config = {
-            'database': {
-                'tables': {
-                    'test': {
-                        'name': 'test_table',
-                        'columns': {
-                            'id': {'type': 'int unsigned', 'primary': True}
+            # Create a test config with a unique table name for each test run
+            import uuid
+            unique_table = f"table_{uuid.uuid4().hex[:8]}"
+            config = {
+                'database': {
+                    'tables': {
+                        unique_table: {
+                            'name': 'test_table',
+                            'columns': {
+                                'id': {'type': 'int unsigned', 'primary': True}
+                            }
                         }
                     }
                 }
             }
-        }
-        config_file = tmp_path / "config.yml"
-        config_file.write_text(config)
-        models = ModelFactory.load_models(str(config_file))
-        assert 'test' in models
+            config_file = tmp_path / "config.yml"
+            config_file.write_text(yaml.dump(config))
+            models = ModelFactory.load_models(str(config_file))
+            assert unique_table in models
