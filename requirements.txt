@@ -1,0 +1,11 @@
+numpy==1.26.3
+python-dotenv
+mysql-connector-python
+sqlalchemy
+torch==2.1.2
+sentence-transformers
+pyyaml
+tqdm
+pytest
+pytest-mock
+pytest-cov

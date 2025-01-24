@@ -1,0 +1,442 @@
+# /etl_processing/config/etl_mappings.yml
+
+# Database configuration
+database:
+  tables:
+    dicosynonymes:
+      name: "dicosynonymes"
+      columns:
+        id:
+          type: "int unsigned"
+          primary: true
+          auto_increment: true
+        created:
+          type: "timestamp"
+          nullable: true
+        modified:
+          type: "timestamp"
+          nullable: true
+        table_name_id:
+          type: "int unsigned"
+          nullable: false
+        table_name:
+          type: "varchar(255)"
+          nullable: false
+        name:
+          type: "varchar(255)"
+          nullable: false
+        ai_match_message:
+          type: "text"
+          nullable: true
+
+    accidents:
+      name: "accidents"
+      columns:
+        id:
+          type: "int unsigned"
+          primary: true
+          auto_increment: true
+        created: 
+          type: "timestamp"
+          nullable: true
+        modified:
+          type: "timestamp"
+          nullable: true
+        user_id:
+          type: "int unsigned"
+          nullable: true
+          
+        # Fields for ETL values
+        localisationblessure:
+          type: "varchar(255)"
+          nullable: true
+        TypeBlessure:
+          type: "varchar(255)"
+          nullable: true
+        Meteo:
+          type: "varchar(255)"
+          nullable: true
+        TypeAccident:
+          type: "varchar(255)"
+          nullable: true
+        CauseAccident:
+          type: "varchar(255)"
+          nullable: true
+        station_id:
+          type: "int unsigned"
+          nullable: true
+          references: "stations.id"
+        Station:
+          type: "varchar(255)"
+          nullable: true
+        piste_id:
+          type: "int unsigned"
+          nullable: true
+          references: "pistes.id"
+        Piste:
+          type: "varchar(255)"
+          nullable: true
+        activitepratiquee_id:
+          type: "int unsigned"
+          nullable: true
+          references: "activitepratiquees.id"
+        ActivitePratiquee:
+          type: "varchar(255)"
+          nullable: true
+        etatneige_id:
+          type: "int unsigned"
+          nullable: true
+          references: "tga_neiges.id"
+        EtatNeige:
+          type: "varchar(255)"
+          nullable: true
+        pay_id:
+          type: "int unsigned"
+          nullable: true
+          references: "tga_pays.id"
+        Pay:
+          type: "varchar(255)"
+          nullable: true
+
+    stations:
+      name: "stations"
+      columns:
+        id:
+          type: "int unsigned"
+          primary: true
+          auto_increment: true
+        created:
+          type: "timestamp"
+          nullable: true
+        modified:
+          type: "timestamp"
+          nullable: true
+        archive:
+          type: "tinyint"
+          nullable: true
+        name:
+          type: "varchar(255)"
+          nullable: false
+        commune:
+          type: "varchar(255)"
+          nullable: false
+        code_postal:
+          type: "varchar(255)"
+          nullable: false
+        user_id:
+          type: "int unsigned"
+          nullable: false
+
+    pistes:
+      name: "pistes"
+      columns:
+        id:
+          type: "int unsigned"
+          primary: true
+          auto_increment: true
+        station_id:
+          type: "int unsigned"
+          nullable: true
+        sousstation_id:
+          type: "int unsigned"
+          nullable: true
+        name:
+          type: "varchar(255)"
+          nullable: false
+        couleur_id:
+          type: "int unsigned"
+          nullable: true
+
+    accidents_localisationblessures:
+      name: "accidents_localisationblessures"
+      columns:
+        id:
+          type: "int unsigned"
+          primary: true
+          auto_increment: true
+        created:
+          type: "timestamp"
+          nullable: true
+        modified:
+          type: "timestamp"
+          nullable: true
+        accident_id:
+          type: "int unsigned"
+          nullable: false
+          references: "accidents.id"
+        tga_localisationblessure_id:
+          type: "int unsigned"
+          nullable: false
+          references: "tga_localisationblessures.id"
+
+    accidents_blessures:
+      name: "accidents_blessures"
+      columns:
+        id:
+          type: "int unsigned"
+          primary: true
+          auto_increment: true
+        created:
+          type: "timestamp"
+          nullable: true
+        modified:
+          type: "timestamp"
+          nullable: true
+        accident_id:
+          type: "int unsigned"
+          nullable: false
+          references: "accidents.id"
+        tga_blessure_id:
+          type: "int unsigned"
+          nullable: false
+          references: "tga_blessures.id"
+
+    accidents_meteos:
+      name: "accidents_meteos"
+      columns:
+        id:
+          type: "int unsigned"
+          primary: true
+          auto_increment: true
+        created:
+          type: "timestamp"
+          nullable: true
+        modified:
+          type: "timestamp"
+          nullable: true
+        accident_id:
+          type: "int unsigned"
+          nullable: false
+          references: "accidents.id"
+        tga_meteo_id:
+          type: "int unsigned"
+          nullable: false
+          references: "tga_meteos.id"
+
+    tga_neiges:
+      name: "tga_neiges"
+      columns:
+        id:
+          type: "int unsigned"
+          primary: true
+          auto_increment: true
+        created:
+          type: "timestamp"
+          nullable: true
+        modified:
+          type: "timestamp"
+          nullable: true
+        archive:
+          type: "tinyint"
+          nullable: true
+        name:
+          type: "varchar(64)"
+          nullable: false
+
+    tga_pays:
+      name: "tga_pays"
+      columns:
+        id:
+          type: "int unsigned"
+          primary: true
+          auto_increment: true
+        code:
+          type: "int"
+          nullable: false
+        alpha2:
+          type: "varchar(2)"
+          nullable: false
+        alpha3:
+          type: "varchar(3)"
+          nullable: false
+        code_iso_regions:
+          type: "varchar(16)"
+          nullable: true
+        name:
+          type: "varchar(64)"
+          nullable: false
+        name_en_gb:
+          type: "varchar(64)"
+          nullable: false
+        name_iso_fr_fr:
+          type: "varchar(64)"
+          nullable: true
+        name_lang_org:
+          type: "varchar(255)"
+          nullable: true
+
+
+    activitepratiquees:
+      name: "activitepratiquees"
+      columns:
+        id:
+          type: "int unsigned"
+          primary: true
+          auto_increment: true
+        name:
+          type: "varchar(255)"
+          nullable: false
+
+    tga_localisationblessures:
+      name: "tga_localisationblessures"
+      columns:
+        id:
+          type: "int unsigned"
+          primary: true
+          auto_increment: true
+        created:
+          type: "timestamp"
+          nullable: true
+        modified:
+          type: "timestamp"
+          nullable: true
+        archive:
+          type: "tinyint"
+          nullable: true
+        name:
+          type: "varchar(255)"
+          nullable: false
+        tga_localisationblessure_groupe_id:
+          type: "int unsigned"
+          nullable: true
+
+    tga_blessures:
+      name: "tga_blessures"
+      columns:
+        id:
+          type: "int unsigned"
+          primary: true
+          auto_increment: true
+        created:
+          type: "timestamp"
+          nullable: true
+        modified:
+          type: "timestamp"
+          nullable: true
+        archive:
+          type: "tinyint"
+          nullable: true
+        name:
+          type: "varchar(255)"
+          nullable: false
+        tga_blessure_groupe_id:
+          type: "int unsigned"
+          nullable: true
+
+    tga_meteos:
+      name: "tga_meteos"
+      columns:
+        id:
+          type: "int unsigned"
+          primary: true
+          auto_increment: true
+        created:
+          type: "timestamp"
+          nullable: true
+        modified:
+          type: "timestamp"
+          nullable: true
+        archive:
+          type: "tinyint"
+          nullable: true
+        name:
+          type: "varchar(255)"
+          nullable: false
+
+# ETL settings
+settings:
+  batch_size: 10000
+  max_iterations: 1
+  progress_interval: 10000
+
+# ETL type definitions
+etl_types:
+  snow:
+    description: "Snow conditions (états de neige)"
+    table_name: "tga_neiges"
+    source_table: "accidents"
+    value_field: "EtatNeige"
+    mapping_id_field: "etatneige_id"
+    multiple_values: false
+    context_fields:
+      - field: "Station"
+        weight: 0.3
+      - field: "Piste"
+        weight: 0.4
+
+  country:
+    description: "Countries (pays)"
+    table_name: "tga_pays"
+    source_table: "accidents"
+    value_field: "Pay"
+    mapping_id_field: "pay_id"
+    multiple_values: false
+    validation:
+      skip_if_matches: "^\\d{1,3}$"
+    context_fields: []
+
+  localization:
+    description: "Body injury locations (localisations des blessures)"
+    table_name: "tga_localisationblessures"
+    source_table: "accidents"
+    junction_table: "accidents_localisationblessures"
+    value_field: "localisationblessure"
+    multiple_values: true
+    value_separator: "[/,]"
+    junction_mapping:
+      accident_field: "accident_id"
+      target_field: "tga_localisationblessure_id"
+    context_fields:
+      - field: "TypeAccident"
+        weight: 0.4
+      - field: "CauseAccident"
+        weight: 0.3
+      - field: "TypeBlessure"
+        weight: 0.3
+
+  injury:
+    description: "Injury types (types de blessures)"
+    table_name: "tga_blessures"
+    source_table: "accidents"
+    junction_table: "accidents_blessures"
+    value_field: "TypeBlessure"
+    multiple_values: true
+    value_separator: "[/,]"
+    junction_mapping:
+      accident_field: "accident_id"
+      target_field: "tga_blessure_id"
+    context_fields:
+      - field: "TypeAccident"
+        weight: 0.4
+      - field: "CauseAccident"
+        weight: 0.3
+      - field: "localisationblessure"
+        weight: 0.3
+
+  weather:
+    description: "Weather conditions (Météo)"
+    table_name: "tga_meteos"
+    source_table: "accidents"
+    junction_table: "accidents_meteos"
+    value_field: "Meteo"
+    multiple_values: true
+    value_separator: "[/,]"
+    junction_mapping:
+      accident_field: "accident_id"
+      target_field: "tga_meteo_id"
+    context_fields:
+      - field: "EtatNeige"
+        weight: 0.4
+
+  activity:
+    description: "Activity (Activité pratiquée)"
+    table_name: "activitepratiquees"
+    source_table: "accidents"
+    value_field: "ActivitePratiquee"
+    mapping_id_field: "activitepratiquee_id"
+    multiple_values: false
+    context_fields:
+      - field: "Station"
+        weight: 0.3
+      - field: "Piste"
+        weight: 0.4

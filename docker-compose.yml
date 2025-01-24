@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  etl:
+    image: python:3.11
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_DATABASE=${MYSQL_DATABASE} 
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    command: bash -c "pip install -e . && pip install pytest pytest-mock pytest-cov && python -m pytest tests/"
