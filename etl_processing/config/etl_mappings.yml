@@ -345,7 +345,7 @@ database:
 
 # ETL settings
 settings:
-  batch_size: 10000
+  batch_size: 1000
   max_iterations: 1
   progress_interval: 50
   retry:
@@ -361,6 +361,7 @@ etl_types:
     description: "Snow conditions (états de neige)"
     table_name: "tga_neiges"
     source_table: "accidents"
+    dictionary_table: "dicosynonymes"
     value_field: "EtatNeige"
     mapping_id_field: "etatneige_id"
     multiple_values: false
@@ -374,6 +375,7 @@ etl_types:
     description: "Countries (pays)"
     table_name: "tga_pays"
     source_table: "accidents"
+    dictionary_table: "dicosynonymes"
     value_field: "Pay"
     mapping_id_field: "pay_id"
     multiple_values: false
@@ -386,6 +388,7 @@ etl_types:
     table_name: "tga_localisationblessures"
     source_table: "accidents"
     junction_table: "accidents_localisationblessures"
+    dictionary_table: "dicosynonymes"
     value_field: "localisationblessure"
     multiple_values: true
     value_separator: "[/,]"
@@ -405,6 +408,7 @@ etl_types:
     table_name: "tga_blessures"
     source_table: "accidents"
     junction_table: "accidents_blessures"
+    dictionary_table: "dicosynonymes"
     value_field: "TypeBlessure"
     multiple_values: true
     value_separator: "[/,]"
@@ -424,6 +428,7 @@ etl_types:
     table_name: "tga_meteos"
     source_table: "accidents"
     junction_table: "accidents_meteos"
+    dictionary_table: "dicosynonymes"
     value_field: "Meteo"
     multiple_values: true
     value_separator: "[/,]"
@@ -438,6 +443,7 @@ etl_types:
     description: "Activity (Activité pratiquée)"
     table_name: "activitepratiquees"
     source_table: "accidents"
+    dictionary_table: "dicosynonymes"
     value_field: "ActivitePratiquee"
     mapping_id_field: "activitepratiquee_id"
     multiple_values: false

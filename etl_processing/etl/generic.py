@@ -152,6 +152,7 @@ class GenericETL:
             ).limit(batch_size)
 
     def _process_record(self, session, record):
+        start_time = time.time()
         value_field = self.etl_config['value_field']
         raw_value = getattr(record, value_field, None)
         if not raw_value:
@@ -167,12 +168,14 @@ class GenericETL:
                 match_result = self._find_direct_match(session, value)
                 if match_result:
                     matched_ids.append(match_result)
+                    self.monitoring.record_match('direct')
                 else:
                     context = self._get_context(record)
                     match_result = self.ai_matcher.find_best_match(value, context)
                     if match_result:
                         actual_id = self.id_map[match_result.id]
                         matched_ids.append(actual_id)
+                        self.monitoring.record_match('ai')
                         self._add_synonym(session, value, actual_id, match_result.confidence)
 
             if matched_ids:
@@ -192,10 +195,12 @@ class GenericETL:
                     session.add(record)
 
                 session.commit()
+                self.monitoring.record_success(time.time() - start_time)
                 return True
 
         except Exception as e:
             self.logger.error(f"Error processing record {getattr(record, 'id', 'unknown')}: {e}")
+            self.monitoring.record_error('processing', str(e), str(getattr(record, 'id', 'unknown')))
             session.rollback()
             return False
 
@@ -243,16 +248,21 @@ class GenericETL:
 
     def _add_synonym(self, session, value: str, target_id: int, confidence: float):
         if 'dictionary_table' not in self.etl_config:
+            self.logger.warning("No dictionary_table configured in etl_config")
             return
-            
+                
         try:
+            self.logger.debug(f"Starting _add_synonym for value: {value}")
             dict_model = self.models[self.etl_config['dictionary_table']]
+            
+            self.logger.debug(f"Checking for existing synonym with table_name={self.etl_config['table_name']}, value={value}")
             existing = session.query(dict_model).filter(
                 dict_model.table_name == self.etl_config['table_name'],
                 func.trim(dict_model.name).collate('utf8mb4_general_ci') == value.strip()
             ).first()
 
             if not existing:
+                self.logger.info(f"Creating new synonym: value='{value}', table={self.etl_config['table_name']}, target_id={target_id}")
                 synonym = dict_model(
                     table_name=self.etl_config['table_name'],
                     table_name_id=target_id,
@@ -260,11 +270,15 @@ class GenericETL:
                     ai_match_message=f"AI match with confidence {confidence:.4f}"
                 )
                 session.add(synonym)
-                session.flush()
+                session.commit()
+                self.logger.info(f"Successfully added synonym with id: {synonym.id}")
+            else:
+                self.logger.debug(f"Synonym already exists: id={existing.id}")
 
         except Exception as e:
-            self.logger.error(f"Error in synonym check/add process: {e}")
+            self.logger.error(f"Error in _add_synonym: {str(e)}")
             session.rollback()
+            raise
 
     def is_valid_value(self, value: str):
         if not value:
