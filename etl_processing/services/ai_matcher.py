@@ -1,4 +1,6 @@
 # services/ai_matcher.py
+"""AI-based text matching service using sentence transformers for fuzzy matching."""
+
 from typing import List, Dict, Optional, NamedTuple, Union
 import torch
 import numpy as np
@@ -8,9 +10,7 @@ import unicodedata
 from ..utils.text_processor import TextProcessor
 
 class MatchResult(NamedTuple):
-    """
-    Represents a matching result from AI matching
-    """
+    """Result of AI matching containing matched ID, confidence score and value."""
     id: int
     confidence: float
     matched_value: str
@@ -23,13 +23,13 @@ class AIMatcherService:
         logger: Optional[logging.Logger] = None,
         config: Optional[dict] = None
     ):
-        """
-        Initialize AI matcher with existing options
+        """Initialize matcher with existing reference values and model.
         
-        :param existing_options: List of existing options to match against
-        :param model_name: Name of the sentence transformer model to use
-        :param logger: Optional logger instance
-        :param config: Optional configuration dictionary
+        Args:
+            existing_options: List of options to match against
+            model_name: Sentence transformer model name
+            logger: Optional logger instance
+            config: Optional configuration dict
         """
         self.logger = logger or logging.getLogger(__name__)
         self.config = config or {}
@@ -50,11 +50,16 @@ class AIMatcherService:
         self.logger.info("AI matcher initialization complete")
 
     def _normalize_medical_term(self, text: str) -> str:
-        """
-        Normalize medical terms for better matching
+        """Normalize medical terms by mapping specific terms to common forms.
         
-        :param text: Input text to normalize
-        :return: Normalized text
+        Args:
+            text: Medical term to normalize
+
+        Returns:
+            Normalized text with mapped common terms
+
+        Example:
+            'tibia perone' -> 'tibia perone jambe'
         """
         text = TextProcessor.normalize_text(text)
         text = unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('ASCII')
@@ -84,13 +89,15 @@ class AIMatcherService:
         context: Dict[str, Union[str, Dict[str, Union[str, float]]]] = {},
         similarity_threshold: Optional[float] = None
     ) -> Optional[MatchResult]:
-        """
-        Find the best match for a given value
+        """Find best matching option for the input value.
         
-        :param value: Value to match
-        :param context: Context dictionary with optional weights
-        :param similarity_threshold: Optional override for similarity threshold
-        :return: MatchResult if found, None otherwise
+        Args:
+            value: Value to find match for
+            context: Optional weighted context values
+            similarity_threshold: Optional custom threshold
+
+        Returns:
+            MatchResult if match found above threshold, None otherwise
         """
         try:
             similarity_threshold = similarity_threshold or self.config.get('ai', {}).get('similarity_threshold', 0.7)
@@ -153,12 +160,14 @@ class AIMatcherService:
         value: str, 
         context: Dict[str, Union[str, Dict[str, Union[str, float]]]]
     ) -> str:
-        """
-        Enhance input value with weighted contextual information
+        """Enhance value with weighted context information.
         
-        :param value: Value to enhance
-        :param context: Context dictionary with optional weights
-        :return: Enhanced value string
+        Args:
+            value: Base value to enhance
+            context: Context values with optional weights
+
+        Returns:
+            Enhanced value string including context
         """
         value = self._normalize_medical_term(value)
         context_parts = [value]
@@ -192,12 +201,14 @@ class AIMatcherService:
         similarities: np.ndarray, 
         context: Dict[str, Union[str, Dict[str, Union[str, float]]]]
     ) -> np.ndarray:
-        """
-        Apply context-based weights to similarity scores
+        """Apply weighted context to base similarity scores.
         
-        :param similarities: Base similarity scores
-        :param context: Context dictionary with weights
-        :return: Weighted similarity scores
+        Args:
+            similarities: Base similarity scores
+            context: Context with weights
+
+        Returns:
+            Updated similarity scores with context weights applied
         """
         weighted_similarities = similarities.copy()
         

@@ -1,48 +1,53 @@
 # utils/text_processor.py
+"""Text normalization utilities."""
+
 import re
 from typing import List, Optional
 
 class TextProcessor:
     @staticmethod
     def parse_localization_values(localization_str: Optional[str]) -> List[str]:
-        """
-        Parse localization string into a list of unique, cleaned values
+        """Splits and cleans localization string.
         
-        :param localization_str: Raw localization string
-        :return: List of cleaned localization values
+        Args:
+            localization_str: Raw localization string
+
+        Returns:
+            List of unique, cleaned values
         """
         if not localization_str:
             return []
         
-        # Split by slash or comma and clean up
         values = re.split(r'[/,]', localization_str)
-        return [
-            val.strip() 
-            for val in values 
-            if val.strip()
-        ]
+        return [val.strip() for val in values if val.strip()]
 
     @staticmethod
     def normalize_text(text: str) -> str:
-        """
-        Normalize text for comparison
+        """Normalizes text for comparison.
         
-        :param text: Input text
-        :return: Normalized text
+        Args:
+            text: Input text
+            
+        Returns:
+            Normalized text
         """
         return text.lower().strip()
 
     @staticmethod
     def calculate_text_similarity(text1: str, text2: str, method='simple') -> float:
-        """
-        Calculate similarity between two texts
+        """Calculates similarity between two texts.
         
-        :param text1: First text
-        :param text2: Second text
-        :param method: Similarity calculation method
-        :return: Similarity score (0-1)
+        Args:
+            text1: First text
+            text2: Second text
+            method: Similarity calculation method
+            
+        Returns:
+            Similarity score (0-1)
+            
+        Raises:
+            ValueError: If method not supported
         """
-        # Normalize texts
         t1 = TextProcessor.normalize_text(text1)
         t2 = TextProcessor.normalize_text(text2)
         
@@ -56,5 +61,4 @@ class TextProcessor:
             
             return intersection / union if union > 0 else 0.0
         
-        # Add more sophisticated similarity methods as needed
         raise ValueError(f"Unsupported similarity method: {method}")

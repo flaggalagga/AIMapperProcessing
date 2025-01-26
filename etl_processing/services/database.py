@@ -1,4 +1,6 @@
 # /scripts/python/services/database.py
+"""Database connection and operations manager."""
+
 import os
 from contextlib import contextmanager
 import logging
@@ -8,7 +10,15 @@ from dotenv import load_dotenv
 from typing import Optional, Any
 
 class DatabaseManager:
-    def __init__(self, logger=None, ai_matcher=None):
+    """Manages database connections and CRUD operations."""
+
+    def __init__(self, logger: Optional[logging.Logger] = None, ai_matcher: Any = None) -> None:
+        """Initialize database connection using environment variables.
+
+        Args:
+            logger: Optional custom logger
+            ai_matcher: Optional AI matching service
+        """
         load_dotenv()
         self.logger = logger or logging.getLogger(__name__)
         self.ai_matcher = ai_matcher
@@ -35,17 +45,27 @@ class DatabaseManager:
             self.logger.error(f"Failed to establish database connection: {e}")
             raise
 
-    def update_record(self, session: Any, record_id: int, table_name: str, field: str, value: Any, max_retries: int = 3) -> bool:
-        """
-        Update a record with retry logic
-        
-        :param session: Database session
-        :param record_id: ID of record to update
-        :param table_name: Name of table containing record
-        :param field: Field to update
-        :param value: New value
-        :param max_retries: Maximum number of retry attempts
-        :return: True if update successful, False otherwise
+    def update_record(
+        self, 
+        session: Any, 
+        record_id: int, 
+        table_name: str, 
+        field: str, 
+        value: Any, 
+        max_retries: int = 3
+    ) -> bool:
+        """Update a record with retry logic.
+
+        Args:
+            session: Database session
+            record_id: ID of record to update
+            table_name: Name of table containing record
+            field: Field to update
+            value: New value
+            max_retries: Maximum retry attempts
+
+        Returns:
+            True if update successful
         """
         for attempt in range(max_retries):
             try:
@@ -67,7 +87,11 @@ class DatabaseManager:
     
     @contextmanager
     def session_scope(self):
-        """Provide a transactional scope around a series of operations"""
+        """Provide a transactional scope around operations.
+
+        Yields:
+            Database session
+        """
         session = self.Session()
         try:
             yield session
@@ -79,15 +103,23 @@ class DatabaseManager:
         finally:
             session.close()
 
-    def query_table(self, session: Any, model: Any, filters: Optional[list] = None, limit: Optional[int] = None):
-        """
-        Generic query method for any table
-        
-        :param session: Database session
-        :param model: SQLAlchemy model class
-        :param filters: List of filter conditions
-        :param limit: Maximum number of records to return
-        :return: Query object
+    def query_table(
+        self, 
+        session: Any, 
+        model: Any, 
+        filters: Optional[list] = None, 
+        limit: Optional[int] = None
+    ):
+        """Execute generic table query.
+
+        Args:
+            session: Database session
+            model: SQLAlchemy model class
+            filters: Optional filter conditions
+            limit: Maximum records to return
+
+        Returns:
+            Query object
         """
         query = session.query(model)
         
@@ -100,20 +132,29 @@ class DatabaseManager:
             
         return query
 
-    def add_synonym(self, session: Any, synonym_model: Any, value: str, target_table: str, target_id: int, message: Optional[str] = None) -> bool:
-        """
-        Add a new synonym
-        
-        :param session: Database session
-        :param synonym_model: Synonym model class
-        :param value: Synonym value
-        :param target_table: Target table name
-        :param target_id: Target record ID
-        :param message: Optional message (e.g., for AI matches)
-        :return: True if successful, False otherwise
+    def add_synonym(
+        self, 
+        session: Any, 
+        synonym_model: Any, 
+        value: str, 
+        target_table: str, 
+        target_id: int, 
+        message: Optional[str] = None
+    ) -> bool:
+        """Add new synonym if it doesn't exist.
+
+        Args:
+            session: Database session
+            synonym_model: Synonym model class
+            value: Synonym value
+            target_table: Target table name
+            target_id: Target record ID
+            message: Optional message (e.g., AI match details)
+
+        Returns:
+            True if added, False if exists
         """
         try:
-            # Check for existing synonym
             existing = session.query(synonym_model).filter(
                 synonym_model.table_name == target_table,
                 func.trim(synonym_model.name).collate('utf8mb4_general_ci') == value.strip()

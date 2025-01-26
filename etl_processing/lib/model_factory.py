@@ -1,4 +1,6 @@
 # /etl_processing/lib/model_factory.py
+"""Factory for creating SQLAlchemy models dynamically from YAML configuration."""
+
 from typing import Dict, Any, Type
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text
 from sqlalchemy.orm import declarative_base
@@ -7,7 +9,7 @@ import yaml
 Base = declarative_base()
 
 class ModelFactory:
-    """Factory for creating SQLAlchemy models dynamically from configuration"""
+    """Creates SQLAlchemy models dynamically from configuration."""
     
     TYPE_MAPPING = {
         'int': Integer,
@@ -20,20 +22,23 @@ class ModelFactory:
 
     @classmethod
     def create_model(cls, table_name: str, table_config: Dict[str, Any]) -> Type:
-        """
-        Create a SQLAlchemy model class dynamically from configuration
+        """Creates a SQLAlchemy model class from configuration.
         
-        :param table_name: Name of the table
-        :param table_config: Configuration for the table
-        :return: SQLAlchemy model class
+        Args:
+            table_name: Name of the database table
+            table_config: Table configuration dictionary
+            
+        Returns:
+            SQLAlchemy model class
+            
+        Raises:
+            ValueError: If column type is not supported
         """
         columns = {}
         
-        # Add columns based on configuration
         for col_name, col_config in table_config['columns'].items():
             col_type = col_config['type'].lower()
             
-            # Handle varchar with length
             if col_type.startswith('varchar'):
                 import re
                 length = int(re.search(r'\((\d+)\)', col_type).group(1))
@@ -45,12 +50,10 @@ class ModelFactory:
                     autoincrement=col_config.get('auto_increment', False)
                 )
             else:
-                # Get SQLAlchemy type from mapping
                 sql_type = cls.TYPE_MAPPING.get(col_type)
                 if not sql_type:
                     raise ValueError(f"Unsupported column type: {col_type}")
                 
-                # Handle foreign keys
                 if 'references' in col_config:
                     ref_table, ref_col = col_config['references'].split('.')
                     column = Column(
@@ -68,7 +71,6 @@ class ModelFactory:
             
             columns[col_name] = column
 
-        # Create and return model class with unique name
         class_name = f"Dynamic{table_name}Model"
         return type(
             class_name,
@@ -82,18 +84,19 @@ class ModelFactory:
 
     @classmethod
     def load_models(cls, config_path: str) -> Dict[str, Type]:
-        """
-        Load all models from configuration file
+        """Loads all models from configuration file.
         
-        :param config_path: Path to configuration file
-        :return: Dictionary of table names to model classes
+        Args:
+            config_path: Path to YAML configuration
+            
+        Returns:
+            Dictionary mapping table names to model classes
         """
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
             
         models = {}
         
-        # Add dicosynonymes table configuration if not present
         if 'dicosynonymes' not in config['database']['tables']:
             config['database']['tables']['dicosynonymes'] = {
                 'name': 'dicosynonymes',

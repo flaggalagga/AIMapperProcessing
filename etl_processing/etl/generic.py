@@ -1,14 +1,24 @@
+# /etl_processing/etl/generic.py
+"""
+Generic ETL processor that handles data mapping with AI assistance.
+Supports both single-value and multi-value mappings with configurable validation rules.
+"""
+
 import re
 import yaml
 import os
 import sys
+import time
 from pathlib import Path
+from datetime import datetime
 from typing import Dict, Any, List, Optional, Type
 from sqlalchemy import func
 from ..lib.model_factory import ModelFactory
 from ..services.database import DatabaseManager
 from ..services.ai_matcher import AIMatcherService
 from ..services.logger import setup_logging
+from ..services.monitoring import MonitoringService
+from ..services.error_handler import ErrorHandler
 
 class GenericETL:
     def __init__(self, etl_type: str, config_path: str):
@@ -16,6 +26,9 @@ class GenericETL:
         self.models = None
         self.logger = setup_logging()
         self.logger.info(f"Initializing {etl_type} ETL processor")
+        
+        self.monitoring = MonitoringService(self.logger)
+        self.error_handler = ErrorHandler(self.logger, self.monitoring)
         
         self._init_config(config_path, etl_type)
         self._init_models(config_path)
@@ -39,28 +52,24 @@ class GenericETL:
         self.target_model = self.models[self.etl_config['table_name']]
     
     def _init_ai_matcher(self):
-        try:
-            with self.db_manager.session_scope() as session:
-                items = session.query(
-                    self.target_model.id,
-                    self.target_model.name
-                ).all()
-                
-                self.existing_options = [name for _, name in items]
-                self.ai_matcher = AIMatcherService(
-                    existing_options=self.existing_options,
-                    logger=self.logger,
-                    config=self.config
-                )
-                self.id_map = {idx: id for idx, (id, _) in enumerate(items)}
-        except Exception as e:
-            self.logger.error(f"Failed to initialize AI matcher: {e}")
-            raise
-    
+        with self.db_manager.session_scope() as session:
+            items = session.query(
+                self.target_model.id,
+                self.target_model.name
+            ).all()
+            
+            self.existing_options = [name for _, name in items]
+            self.ai_matcher = AIMatcherService(
+                existing_options=self.existing_options,
+                logger=self.logger,
+                config=self.config
+            )
+            self.id_map = {idx: id for idx, (id, _) in enumerate(items)}
+
     def run(self):
-        """Execute the ETL process"""
+        self.monitoring.start_run()
         try:
-            batch_size = self.settings.get('batch_size', 50)
+            batch_size = self.settings.get('batch_size', 1000)
             max_iterations = self.settings.get('max_iterations', 1)
             progress_interval = self.settings.get('progress_interval', 50)
 
@@ -108,25 +117,29 @@ class GenericETL:
 
                     processed_total += processed_in_batch
                     iteration += 1
+                    
                     self.logger.info(
                         f"Completed batch {iteration}: "
                         f"processed {processed_in_batch} records. "
                         f"Total processed: {processed_total}"
                     )
+
         except Exception as e:
             self.logger.error(f"ETL process failed: {e}")
             self.logger.exception("Full traceback:")
+            
         finally:
-            self.logger.info(
-                f"ETL process completed. "
-                f"Total records processed: {processed_total}"
-            )
+            self.monitoring.end_run()
+            self.logger.info(f"ETL process completed. Total records processed: {processed_total}")
 
     def get_unmapped_records(self, session, batch_size: int):
         if self.etl_config.get('multiple_values', False):
             junction_model = self.models[self.etl_config['junction_table']]
+            mapping = self.etl_config['junction_mapping']
+            source_field = mapping['source_field']
+            
             subquery = session.query(junction_model).filter(
-                junction_model.accident_id == self.source_model.id
+                getattr(junction_model, source_field) == self.source_model.id
             ).exists()
             return session.query(self.source_model).filter(
                 ~subquery,
@@ -138,12 +151,11 @@ class GenericETL:
                 getattr(self.source_model, self.etl_config['value_field']).isnot(None)
             ).limit(batch_size)
 
-    def _process_record(self, session, record) -> List[int]:
-        """Process a single record"""
+    def _process_record(self, session, record):
         value_field = self.etl_config['value_field']
         raw_value = getattr(record, value_field, None)
         if not raw_value:
-            return []
+            return False
 
         matched_ids = []
         try:
@@ -170,7 +182,7 @@ class GenericETL:
                     for target_id in matched_ids:
                         junction = junction_model(
                             **{
-                                mapping['accident_field']: record.id,
+                                mapping['source_field']: record.id,
                                 mapping['target_field']: target_id
                             }
                         )
@@ -179,21 +191,23 @@ class GenericETL:
                     setattr(record, self.etl_config['mapping_id_field'], matched_ids[0])
                     session.add(record)
 
+                session.commit()
+                return True
+
         except Exception as e:
             self.logger.error(f"Error processing record {getattr(record, 'id', 'unknown')}: {e}")
-            return []
+            session.rollback()
+            return False
 
-        return matched_ids
+        return False
 
-    def _split_values(self, raw_value: str) -> List[str]:
-        """Split value if multiple values are allowed"""
+    def _split_values(self, raw_value: str):
         if not self.etl_config.get('multiple_values', False):
             return [raw_value]
         separator = self.etl_config.get('value_separator', '[/,]')
         return [val.strip() for val in re.split(separator, raw_value) if val.strip()]
 
-    def _get_context(self, record) -> Dict[str, Dict[str, Any]]:
-        """Get context for AI matching"""
+    def _get_context(self, record):
         context = {}
         for context_field in self.etl_config.get('context_fields', []):
             field_name = context_field['field']
@@ -205,8 +219,7 @@ class GenericETL:
                 }
         return context
 
-    def _find_direct_match(self, session, value: str) -> Optional[int]:
-        """Find exact match in target table or synonyms"""
+    def _find_direct_match(self, session, value):
         try:
             match = session.query(self.target_model).filter(
                 self.target_model.name == value
@@ -214,27 +227,33 @@ class GenericETL:
             if match:
                 return match.id
 
-            synonym = session.query(self.models['dicosynonymes']).filter(
-                self.models['dicosynonymes'].table_name == self.etl_config['table_name'],
-                self.models['dicosynonymes'].name == value
-            ).first()
-            if synonym:
-                return synonym.table_name_id
+            if 'dictionary_table' in self.etl_config:
+                synonym = session.query(self.models[self.etl_config['dictionary_table']]).filter(
+                    self.models[self.etl_config['dictionary_table']].table_name == self.etl_config['table_name'],
+                    self.models[self.etl_config['dictionary_table']].name == value
+                ).first()
+                if synonym:
+                    return synonym.table_name_id
 
         except Exception as e:
             self.logger.error(f"Error in direct matching: {e}")
             return None
 
+        return None
+
     def _add_synonym(self, session, value: str, target_id: int, confidence: float):
-        """Add new synonym to dictionary"""
+        if 'dictionary_table' not in self.etl_config:
+            return
+            
         try:
-            existing = session.query(self.models['dicosynonymes']).filter(
-                self.models['dicosynonymes'].table_name == self.etl_config['table_name'],
-                func.trim(self.models['dicosynonymes'].name).collate('utf8mb4_general_ci') == value.strip()
+            dict_model = self.models[self.etl_config['dictionary_table']]
+            existing = session.query(dict_model).filter(
+                dict_model.table_name == self.etl_config['table_name'],
+                func.trim(dict_model.name).collate('utf8mb4_general_ci') == value.strip()
             ).first()
 
             if not existing:
-                synonym = self.models['dicosynonymes'](
+                synonym = dict_model(
                     table_name=self.etl_config['table_name'],
                     table_name_id=target_id,
                     name=value.strip(),
@@ -247,8 +266,7 @@ class GenericETL:
             self.logger.error(f"Error in synonym check/add process: {e}")
             session.rollback()
 
-    def is_valid_value(self, value: str) -> bool:
-        """Check if value should be processed"""
+    def is_valid_value(self, value: str):
         if not value:
             return False
 

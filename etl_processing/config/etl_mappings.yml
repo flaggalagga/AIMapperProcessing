@@ -3,7 +3,7 @@
 # Database configuration
 database:
   tables:
-    dicosynonymes:
+    dictionary_table:
       name: "dicosynonymes"
       columns:
         id:
@@ -347,8 +347,14 @@ database:
 settings:
   batch_size: 10000
   max_iterations: 1
-  progress_interval: 10000
-
+  progress_interval: 50
+  retry:
+    max_attempts: 3
+    delay: 1.0
+  batch:
+    initial_size: 1000
+    min_size: 100
+    max_size: 5000
 # ETL type definitions
 etl_types:
   snow:
@@ -384,7 +390,7 @@ etl_types:
     multiple_values: true
     value_separator: "[/,]"
     junction_mapping:
-      accident_field: "accident_id"
+      source_field: "accident_id"
       target_field: "tga_localisationblessure_id"
     context_fields:
       - field: "TypeAccident"
@@ -403,7 +409,7 @@ etl_types:
     multiple_values: true
     value_separator: "[/,]"
     junction_mapping:
-      accident_field: "accident_id"
+      source_field: "accident_id"
       target_field: "tga_blessure_id"
     context_fields:
       - field: "TypeAccident"
@@ -422,7 +428,7 @@ etl_types:
     multiple_values: true
     value_separator: "[/,]"
     junction_mapping:
-      accident_field: "accident_id"
+      source_field: "accident_id"
       target_field: "tga_meteo_id"
     context_fields:
       - field: "EtatNeige"

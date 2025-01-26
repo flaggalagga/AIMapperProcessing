@@ -1,10 +1,13 @@
-# /scripts/python/main.py
+# /etl_processing/main.py
+"""Main entry point for ETL processing with AI-assisted matching."""
+
 import sys
 import os
 import yaml
 from .etl.generic import GenericETL
 
 def main():
+    """Execute ETL process based on command line arguments."""
     # Determine config path
     script_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(script_dir, 'config', 'etl_mappings.yml')
