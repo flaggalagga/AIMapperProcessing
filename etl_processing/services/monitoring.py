@@ -22,6 +22,7 @@ class ETLMetrics:
         return sum(self.processing_times) / len(self.processing_times) if self.processing_times else 0
 
 class MonitoringService:
+    """Service for tracking ETL metrics and performance."""
     def __init__(self, logger):
         self.logger = logger
         self.reporter = CLIReporter(logger)
@@ -29,19 +30,33 @@ class MonitoringService:
         self.error_history = []
 
     def start_run(self):
+        """Initialize metrics for new ETL run."""
         self.current_run = ETLMetrics(start_time=datetime.now())
 
     def end_run(self):
+        """Finalize metrics and generate report."""
         if self.current_run:
             self.current_run.end_time = datetime.now()
             self.reporter.report_metrics(self.get_stats())
 
     def record_success(self, processing_time: float):
+        """Record successful operation.
+        
+        Args:
+            processing_time: Operation duration
+        """
         if self.current_run:
             self.current_run.records_processed += 1
             self.current_run.processing_times.append(processing_time)
 
     def record_error(self, error_type: str, error_msg: str, record_id: str = None):
+        """Record operation error.
+        
+        Args:
+            error_type: Type of error
+            error_msg: Error message
+            record_id: Optional record identifier
+        """
         if self.current_run:
             self.current_run.records_failed += 1
             self.current_run.error_counts[error_type] = self.current_run.error_counts.get(error_type, 0) + 1

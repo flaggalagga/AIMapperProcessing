@@ -1,10 +1,12 @@
 # services/reporting.py
+"""ETL process reporting and metrics output."""
 from dataclasses import dataclass
 from typing import Dict, List
 from datetime import datetime
 import json
 
 class ETLReport:
+   """Handles generation and saving of ETL reports."""
    def __init__(self, logger):
        self.logger = logger
 
@@ -21,6 +23,14 @@ class ETLReport:
        return "\n".join(f"{error}: {count}" for error, count in error_counts.items())
 
    def generate_summary(self, metrics) -> str:
+       """Generate summary of ETL run.
+       
+       Args:
+           metrics: ETL metrics data
+           
+       Returns:
+           Formatted summary string
+       """
        duration = (metrics.end_time - metrics.start_time).total_seconds()
        total_records = metrics.records_processed + metrics.records_failed
        success_rate = metrics.records_processed/total_records if total_records > 0 else 0
@@ -45,6 +55,11 @@ Error Distribution:
 """
 
    def save_metrics(self, metrics):
+       """Save detailed metrics to file.
+       
+       Args:
+           metrics: ETL metrics data
+       """
        metrics_file = f"reports/metrics/metrics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
        with open(metrics_file, 'w') as f:
            json.dump({
@@ -66,6 +81,11 @@ Error Distribution:
            }, f, indent=2, default=str)
 
    def save_summary(self, metrics):
+       """Save run summary to file.
+       
+       Args:
+           metrics: ETL metrics data
+       """
        summary_file = f"reports/summaries/summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
        with open(summary_file, 'w') as f:
            json.dump({
@@ -82,6 +102,14 @@ Error Distribution:
            }, f, indent=2, default=str)
 
    def get_metrics_summary(self, metrics) -> Dict:
+       """Get summary of key metrics.
+       
+       Args:
+           metrics: ETL metrics data
+           
+       Returns:
+           Dictionary of summarized metrics
+       """
        return {
            'total_processed': metrics.records_processed,
            'total_failed': metrics.records_failed,

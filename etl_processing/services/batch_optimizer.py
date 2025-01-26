@@ -1,4 +1,5 @@
 # services/batch_optimizer.py
+"""Batch size optimization for ETL processing based on performance metrics."""
 from dataclasses import dataclass
 from typing import List
 import numpy as np
@@ -10,6 +11,7 @@ class BatchStats:
     processing_time: float
 
 class BatchOptimizer:
+    """Optimizes ETL batch sizes based on processing metrics."""
     def __init__(self, initial_size: int = 1000, min_size: int = 100, max_size: int = 5000):
         self.current_size = initial_size
         self.min_size = min_size
@@ -17,7 +19,15 @@ class BatchOptimizer:
         self.history: List[BatchStats] = []
         
     def adjust_size(self, success_rate: float, processing_time: float) -> int:
-        """Adjust batch size based on performance metrics."""
+        """Adjust batch size based on performance metrics.
+        
+        Args:
+            success_rate: Rate of successful operations
+            processing_time: Time taken to process batch
+            
+        Returns:
+            New batch size
+        """
         self.history.append(BatchStats(self.current_size, success_rate, processing_time))
         
         # More aggressive scaling factors
@@ -29,6 +39,11 @@ class BatchOptimizer:
         return self.current_size
         
     def get_stats(self):
+        """Return optimizer statistics.
+        
+        Returns:
+            Dictionary containing performance metrics
+        """
         if not self.history:
             return None
             

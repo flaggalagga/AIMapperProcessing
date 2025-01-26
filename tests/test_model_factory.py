@@ -1,4 +1,5 @@
 # tests/test_model_factory.py
+"""Unit tests for SQLAlchemy model factory functionality."""
 import pytest
 import yaml
 from etl_processing.lib.model_factory import ModelFactory

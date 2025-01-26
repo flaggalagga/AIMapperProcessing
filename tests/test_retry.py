@@ -1,4 +1,5 @@
 # tests/test_retry.py
+"""Unit tests for retry mechanism functionality."""
 import pytest
 import logging
 from unittest.mock import Mock, patch

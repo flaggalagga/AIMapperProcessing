@@ -1,4 +1,5 @@
 # tests/test_monitoring.py
+"""Unit tests for ETL monitoring and metrics tracking."""
 import pytest
 from unittest.mock import Mock, patch
 from datetime import datetime, timedelta

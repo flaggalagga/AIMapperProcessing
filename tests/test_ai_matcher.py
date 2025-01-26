@@ -1,4 +1,5 @@
 # tests/test_ai_matcher.py
+"""Unit tests for AI-based text matching service."""
 import pytest
 import numpy as np
 import torch

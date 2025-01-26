@@ -1,12 +1,20 @@
 # services/cli_reporting.py
+"""Command-line reporting utilities for ETL processes."""
 from typing import Dict
 from datetime import datetime
 
+
 class CLIReporter:
+    """Handles command-line reporting of ETL metrics."""
     def __init__(self, logger):
         self.logger = logger
 
     def report_metrics(self, metrics: Dict):
+        """Print formatted metrics report to console.
+        
+        Args:
+            metrics: Dictionary of ETL metrics
+        """
         report = f"""
 ETL Process Report
 -----------------
@@ -28,6 +36,15 @@ Performance:
         self.logger.info(report)
 
     def _format_duration(self, start: datetime, end: datetime) -> str:
+        """Format time duration for display.
+        
+        Args:
+            start: Start timestamp
+            end: End timestamp
+            
+        Returns:
+            Formatted duration string
+        """
         duration = end - start
         hours = duration.seconds // 3600
         minutes = (duration.seconds % 3600) // 60
