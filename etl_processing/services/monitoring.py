@@ -15,12 +15,18 @@ class ETLMetrics:
     processing_times: List[float] = field(default_factory=list)
     batch_sizes: List[int] = field(default_factory=list)
     error_counts: Dict[str, int] = field(default_factory=dict)
+    timings: Dict[str, List[float]] = field(default_factory=dict)
+
+    @property
+    def avg_processing_time(self) -> float:
+        return sum(self.processing_times) / len(self.processing_times) if self.processing_times else 0
 
 class MonitoringService:
     def __init__(self, logger):
         self.logger = logger
         self.reporter = CLIReporter(logger)
         self.current_run = None
+        self.error_history = []
 
     def start_run(self):
         self.current_run = ETLMetrics(start_time=datetime.now())
@@ -39,6 +45,12 @@ class MonitoringService:
         if self.current_run:
             self.current_run.records_failed += 1
             self.current_run.error_counts[error_type] = self.current_run.error_counts.get(error_type, 0) + 1
+            self.error_history.append({
+                'timestamp': datetime.now(),
+                'type': error_type,
+                'message': error_msg,
+                'record_id': record_id
+            })
 
     def record_match(self, match_type: str):
         if not self.current_run:
@@ -47,6 +59,12 @@ class MonitoringService:
             self.current_run.direct_matches += 1
         elif match_type == 'ai':
             self.current_run.ai_matches += 1
+
+    def record_timing(self, metric_name: str, duration: float):
+        if self.current_run:
+            if metric_name not in self.current_run.timings:
+                self.current_run.timings[metric_name] = []
+            self.current_run.timings[metric_name].append(duration)
 
     def update_batch_size(self, size: int):
         if self.current_run:
@@ -64,8 +82,7 @@ class MonitoringService:
             'failed': self.current_run.records_failed,
             'success_rate': (self.current_run.records_processed / total_records * 100 
                            if total_records > 0 else 0),
-            'avg_processing_time': sum(self.current_run.processing_times) / len(self.current_run.processing_times)
-                                 if self.current_run.processing_times else 0,
+            'avg_processing_time': self.current_run.avg_processing_time,
             'current_batch_size': self.current_run.batch_sizes[-1] 
                                 if self.current_run.batch_sizes else 1000,
             'match_types': {
