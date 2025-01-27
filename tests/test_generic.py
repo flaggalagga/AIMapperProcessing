@@ -1,148 +1,277 @@
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from etl_processing.etl.generic import GenericETL
-from etl_processing.services.database import DatabaseManager
-from etl_processing.services.ai_matcher import AIMatcherService, MatchResult
+from etl_processing.services.ai_matcher import MatchResult
 
 @pytest.fixture
 def sample_config(tmp_path):
+    import yaml
     config = {
         'database': {
             'tables': {
-                'source_table': {
-                    'name': 'source_table',
+                'source': {
+                    'name': 'source',
                     'columns': {
                         'id': {'type': 'int unsigned', 'primary': True},
                         'value_field': {'type': 'varchar(255)'},
-                        'mapping_id': {'type': 'int unsigned'}
+                        'context_field': {'type': 'varchar(255)'},
+                        'mapping_id': {'type': 'int unsigned', 'nullable': True}
                     }
                 },
-                'target_table': {
-                    'name': 'target_table',
+                'target': {
+                    'name': 'target',
                     'columns': {
                         'id': {'type': 'int unsigned', 'primary': True},
                         'name': {'type': 'varchar(255)'}
                     }
                 },
-                'dictionary_table': {
-                    'name': 'dictionary_table',
+                'junction': {
+                    'name': 'junction_table',
                     'columns': {
-                        'id': {'type': 'int unsigned', 'primary': True, 'auto_increment': True},
+                        'id': {'type': 'int unsigned', 'primary': True},
+                        'source_id': {'type': 'int unsigned'},
+                        'target_id': {'type': 'int unsigned'}
+                    }
+                },
+                'dictionary': {
+                    'name': 'dictionary',
+                    'columns': {
+                        'id': {'type': 'int unsigned', 'primary': True},
                         'table_name': {'type': 'varchar(255)'},
                         'table_name_id': {'type': 'int unsigned'},
-                        'name': {'type': 'varchar(255)'},
-                        'ai_match_message': {'type': 'text', 'nullable': True},
-                        'created': {'type': 'timestamp', 'nullable': True},
-                        'modified': {'type': 'timestamp', 'nullable': True}
+                        'name': {'type': 'varchar(255)'}
                     }
                 }
             }
         },
         'etl_types': {
-            'test_etl': {
-                'description': 'Test ETL Process',
-                'table_name': 'target_table',
-                'source_table': 'source_table',
-                'dictionary_table': 'dictionary_table',
+            'test': {
+                'description': 'Test ETL',
+                'table_name': 'target',
+                'source_table': 'source',
+                'dictionary_table': 'dictionary',
                 'value_field': 'value_field',
                 'mapping_id_field': 'mapping_id',
-                'multiple_values': False
+                'multiple_values': False,
+                'context_fields': [
+                    {'field': 'context_field', 'weight': 0.5}
+                ],
+                'validation': {
+                    'skip_if_matches': '^\\d+$'
+                }
+            },
+            'test_multi': {
+                'description': 'Test Multi-Value ETL',
+                'table_name': 'target',
+                'source_table': 'source',
+                'junction_table': 'junction',
+                'dictionary_table': 'dictionary',
+                'value_field': 'value_field',
+                'multiple_values': True,
+                'value_separator': '[/,]',
+                'junction_mapping': {
+                    'source_field': 'source_id',
+                    'target_field': 'target_id'
+                }
             }
         },
         'settings': {
             'batch_size': 10,
-            'max_iterations': 1,
-            'progress_interval': 5
+            'max_iterations': 1
         }
     }
     
-    import yaml
     config_file = tmp_path / "test_config.yml"
     with open(config_file, 'w') as f:
         yaml.dump(config, f)
     return str(config_file)
 
 @pytest.fixture
-def mock_session():
-    session = MagicMock()
-    session.query.return_value.filter.return_value.exists.return_value = False
-    session.query.return_value.filter.return_value.limit.return_value.all.return_value = []
-    session.query.return_value.filter.return_value.first.return_value = None
-    return session
+def mock_models():
+    source_model = Mock(name='SourceModel')
+    source_model.id = Mock()
+    source_model.value_field = Mock()
+    source_model.context_field = Mock()
+    
+    target_model = Mock(name='TargetModel')
+    target_model.id = Mock()
+    target_model.name = Mock()
+    
+    junction_model = Mock(name='JunctionModel')
+    junction_model.source_id = Mock()
+    junction_model.target_id = Mock()
+    
+    dictionary_model = Mock(name='DictionaryModel')
+    dictionary_model.table_name = Mock()
+    dictionary_model.table_name_id = Mock()
+    dictionary_model.name = Mock()
+    
+    return {
+        'source': source_model,
+        'target': target_model,
+        'junction': junction_model,
+        'dictionary': dictionary_model
+    }
 
 @pytest.fixture
-def etl(sample_config):
-    with patch('etl_processing.etl.generic.DatabaseManager') as mock_db:
-        with patch('etl_processing.etl.generic.AIMatcherService') as mock_ai:
-            mock_session = Mock()
-            mock_query = Mock()
-            mock_query.all.return_value = [(1, "test_option"), (2, "another_option")]
-            mock_session.query.return_value = mock_query
-            mock_db.return_value.session_scope.return_value.__enter__.return_value = mock_session
-            mock_ai.return_value.find_best_match.return_value = None
-            return GenericETL('test_etl', sample_config)
-
-class TestGenericETL:
-    def test_initialization(self, etl):
-        assert etl.etl_type == 'test_etl'
-        assert etl.etl_config['table_name'] == 'target_table'
-        assert etl.etl_config['source_table'] == 'source_table'
-
-    def test_get_unmapped_records(self, etl, mock_session):
-        records = etl.get_unmapped_records(mock_session, 10)
-        mock_session.query.assert_called_once()
+def etl(sample_config, mock_models):
+    with patch('etl_processing.etl.generic.DatabaseManager') as mock_db, \
+         patch('etl_processing.etl.generic.AIMatcherService') as mock_ai, \
+         patch('etl_processing.etl.generic.ModelFactory.load_models', return_value=mock_models):
         
-    @patch('etl_processing.etl.generic.AIMatcherService')
-    def test_process_record_with_direct_match(self, mock_ai, etl, mock_session):
-        record = Mock()
+        # Configure mock session
+        session = MagicMock()
+        mock_db.return_value.session_scope.return_value.__enter__.return_value = session
+        mock_db.return_value.session_scope.return_value.__exit__.return_value = None
+        
+        return GenericETL('test', sample_config)
+
+@pytest.fixture
+def etl_multi(sample_config, mock_models):
+    with patch('etl_processing.etl.generic.DatabaseManager') as mock_db, \
+         patch('etl_processing.etl.generic.AIMatcherService') as mock_ai, \
+         patch('etl_processing.etl.generic.ModelFactory.load_models', return_value=mock_models):
+        
+        # Configure mock session
+        session = MagicMock()
+        mock_db.return_value.session_scope.return_value.__enter__.return_value = session
+        mock_db.return_value.session_scope.return_value.__exit__.return_value = None
+        
+        return GenericETL('test_multi', sample_config)
+
+def test_process_record_with_direct_match(etl):
+    with etl.db_manager.session_scope() as session:
+        record = MagicMock()
         record.id = 1
-        setattr(record, etl.etl_config['value_field'], "test_value")
+        record.value_field = "test_value"
         
-        mock_match = Mock()
-        mock_match.id = 100
-        mock_session.query.return_value.filter.return_value.first.return_value = mock_match
+        # Setup direct match
+        direct_match = Mock()
+        direct_match.id = 2
+        session.query.return_value.filter.return_value.first.return_value = direct_match
         
-        result = etl._process_record(mock_session, record)
+        result = etl._process_record(session, record)
         assert result is True
-        
-    def test_split_values(self, etl):
-        result = etl._split_values("single_value")
-        assert result == ["single_value"]
-        
-        etl.etl_config['multiple_values'] = True
-        etl.etl_config['value_separator'] = '[/,]'
-        result = etl._split_values("value1/value2,value3")
-        assert len(result) == 3
-        assert "value1" in result
-        
-    def test_find_direct_match(self, etl, mock_session):
-        result = etl._find_direct_match(mock_session, "test_value")
-        assert result is None
-        mock_session.query.assert_called()
-        
-    @patch('etl_processing.etl.generic.AIMatcherService')
-    def test_process_record_with_ai_match(self, mock_ai, etl, mock_session):
-        record = Mock()
+
+def test_process_record_with_ai_match(etl):
+    with etl.db_manager.session_scope() as session:
+        record = MagicMock()
         record.id = 1
-        setattr(record, etl.etl_config['value_field'], "test_value")
+        record.value_field = "test_value"
         
-        match_result = MatchResult(id=200, confidence=0.95, matched_value="matched_value")
+        # No direct match
+        session.query.return_value.filter.return_value.first.return_value = None
+        
+        # Setup AI match
+        match_result = MatchResult(id=0, confidence=0.95, matched_value="matched")
         etl.ai_matcher.find_best_match.return_value = match_result
-        etl.id_map = {200: 200}
+        etl.id_map = {0: 3}
         
-        # Mock the add_synonym behavior
-        mock_synonym = Mock()
-        mock_session.add = Mock()
-        mock_session.commit = Mock()
-        
-        result = etl._process_record(mock_session, record)
+        result = etl._process_record(session, record)
         assert result is True
+
+def test_process_record_multi_value(etl_multi):
+    with etl_multi.db_manager.session_scope() as session:
+        record = MagicMock()
+        record.id = 1
+        record.value_field = "value1/value2"
         
-    def test_is_valid_value(self, etl):
-        assert etl.is_valid_value("test") is True
-        assert etl.is_valid_value("") is False
-        assert etl.is_valid_value(None) is False
+        # Setup matches
+        match1 = Mock(id=2)
+        match2 = Mock(id=3)
+        session.query.return_value.filter.return_value.first.side_effect = [match1, match2]
         
-        etl.etl_config['validation'] = {'skip_if_matches': '^\\d+$'}
-        assert etl.is_valid_value("123") is False
-        assert etl.is_valid_value("abc") is True
+        result = etl_multi._process_record(session, record)
+        assert result is True
+        assert session.add.call_count == 2
+
+def test_process_record_with_validation(etl):
+    with etl.db_manager.session_scope() as session:
+        record = MagicMock()
+        record.id = 1
+        record.value_field = "123"  # Should be skipped by validation
+        
+        result = etl._process_record(session, record)
+        assert result is False
+
+def test_get_context(etl):
+    record = MagicMock()
+    record.context_field = "test_context"
+    
+    context = etl._get_context(record)
+    assert context["context_field"]["value"] == "test_context"
+    assert context["context_field"]["weight"] == 0.5
+
+def test_find_direct_match_no_match(etl):
+    with etl.db_manager.session_scope() as session:
+        session.query.return_value.filter.return_value.first.return_value = None
+        
+        result = etl._find_direct_match(session, "test_value")
+        assert result is None
+
+def test_find_direct_match_in_dictionary(etl):
+    with etl.db_manager.session_scope() as session:
+        # No direct match in target table
+        session.query.return_value.filter.return_value.first.side_effect = [
+            None,  # No match in target table
+            Mock(table_name_id=2)  # Match in dictionary
+        ]
+        
+        result = etl._find_direct_match(session, "test_value")
+        assert result == 2
+
+def test_run_with_progress(etl):
+    """Replace only the monitoring assertions in this test"""
+    with etl.db_manager.session_scope() as session:
+        # Setup records
+        record = MagicMock()
+        record.id = 1
+        record.value_field = "test_value"
+        
+        # Configure session behavior
+        session.query.return_value.filter.return_value.limit.return_value.all.return_value = [record]
+        session.query.return_value.filter.return_value.first.return_value = Mock(id=2)
+        
+        # Mock monitoring properly
+        etl.monitoring.start_run = Mock()
+        etl.monitoring.end_run = Mock()
+        
+        etl.run()
+        assert etl.monitoring.start_run.call_count == 1
+        assert etl.monitoring.end_run.call_count == 1
+   
+def test_run_with_error(etl):
+    """Replace only the monitoring assertions in this test"""
+    with etl.db_manager.session_scope() as session:
+        # Configure session to raise an error
+        session.query.side_effect = Exception("Test error")
+        
+        # Mock monitoring and logger properly
+        etl.monitoring.start_run = Mock()
+        etl.monitoring.end_run = Mock()
+        etl.logger = Mock()
+        
+        etl.run()
+        assert etl.monitoring.start_run.call_count == 1
+        assert etl.monitoring.end_run.call_count == 1
+        assert etl.logger.error.call_count > 0
+
+def test_process_record_add_synonym(etl):
+    with etl.db_manager.session_scope() as session:
+        record = MagicMock()
+        record.id = 1
+        record.value_field = "test_value"
+        
+        # No direct match, but AI match
+        session.query.return_value.filter.return_value.first.return_value = None
+        match_result = MatchResult(id=0, confidence=0.95, matched_value="matched")
+        etl.ai_matcher.find_best_match.return_value = match_result
+        etl.id_map = {0: 3}
+        
+        # Add synonym
+        new_synonym = Mock()
+        session.add.return_value = new_synonym
+        
+        result = etl._process_record(session, record)
+        assert result is True
+        session.add.assert_called()

@@ -6,6 +6,7 @@ from contextlib import contextmanager
 import logging
 from sqlalchemy import create_engine, func, text
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
 from typing import Optional, Any
 
@@ -67,22 +68,39 @@ class DatabaseManager:
         Returns:
             True if update successful
         """
+        stmt = text(f"UPDATE {table_name} SET {field} = :value WHERE id = :id")
+        
         for attempt in range(max_retries):
             try:
-                stmt = text(f"UPDATE {table_name} SET {field} = :value WHERE id = :id")
                 session.execute(stmt, {'value': value, 'id': record_id})
                 session.commit()
-                self.logger.info(f"Successfully updated {table_name} record {record_id} {field} to {value}")
+                self.logger.info(
+                    f"Successfully updated {table_name} record {record_id} "
+                    f"{field} to {value}"
+                )
                 return True
-            except Exception as e:
+                
+            except SQLAlchemyError as e:
+                session.rollback()
                 if attempt < max_retries - 1:
-                    self.logger.warning(f"Retry {attempt + 1}/{max_retries} updating {table_name} record {record_id}: {e}")
-                    session.rollback()
+                    self.logger.warning(
+                        f"Retry {attempt + 1}/{max_retries} updating "
+                        f"{table_name} record {record_id}: {e}"
+                    )
                     continue
                 else:
-                    self.logger.error(f"Failed to update {table_name} record {record_id} after {max_retries} attempts: {e}")
-                    session.rollback()
-                    raise
+                    self.logger.error(
+                        f"Failed to update {table_name} record {record_id} "
+                        f"after {max_retries} attempts: {e}"
+                    )
+                    return False
+            except Exception as e:
+                session.rollback()
+                self.logger.error(
+                    f"Unexpected error updating {table_name} record {record_id}: {e}"
+                )
+                return False
+                
         return False
     
     @contextmanager
