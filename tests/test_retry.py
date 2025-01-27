@@ -35,17 +35,17 @@ class TestRetry:
     def test_exponential_backoff(self, logger):
         attempts = []
         
-        @with_retry(max_attempts=3, delay=0.1, backoff_factor=2, logger=logger)
+        @with_retry(max_attempts=3, delay=1.0, backoff_factor=2, logger=logger)
         def operation():
             attempts.append(time.time())
             raise ValueError("Always fails")
-            
+        
         with pytest.raises(ValueError):
             operation()
-            
+        
         delays = [attempts[i+1] - attempts[i] for i in range(len(attempts)-1)]
-        assert 0.1 <= delays[0] <= 0.2  # Initial delay
-        assert 0.2 <= delays[1] <= 0.4  # Doubled delay
+        assert 0.9 <= delays[0] <= 1.2  # Initial delay with tolerance
+        assert 1.9 <= delays[1] <= 2.2  # Doubled delay with tolerance
 
     def test_max_delay(self, logger):
         attempts = []

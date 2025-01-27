@@ -1,10 +1,10 @@
-# /etl_processing/lib/model_factory.py
 """Factory for creating SQLAlchemy models dynamically from YAML configuration."""
 
 from typing import Dict, Any, Type
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text
 from sqlalchemy.orm import declarative_base
 import yaml
+import uuid
 
 Base = declarative_base()
 
@@ -71,7 +71,10 @@ class ModelFactory:
             
             columns[col_name] = column
 
-        class_name = f"Dynamic{table_name}Model"
+        # Generate unique class name using uuid
+        unique_id = str(uuid.uuid4()).replace('-', '')
+        class_name = f"Dynamic{table_name}Model_{unique_id}"
+        
         return type(
             class_name,
             (Base,),
