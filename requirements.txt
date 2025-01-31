@@ -1,8 +1,8 @@
-numpy>=2.2.0
+numpy
 python-dotenv
 mysql-connector-python
 sqlalchemy
-torch>=2.6.0
+torch
 sentence-transformers
 pyyaml
 tqdm
