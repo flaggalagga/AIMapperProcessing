@@ -9,7 +9,7 @@ setup(
         "python-dotenv",
         "mysql-connector-python",
         "sqlalchemy",
-        "torch==2.1.2",
+        "torch>=2.1.2",
         "sentence-transformers",
         "pyyaml",
         "tqdm",
