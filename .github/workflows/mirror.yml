@@ -1,0 +1,46 @@
+name: Mirror Repository
+
+on:
+  push:
+    branches:
+      - main    # or your default branch
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.INTERACTION_SSH_PRIVATE_KEY }}" > ~/.ssh/gitlab_key
+          echo "${{ secrets.INTERACTION_SSH_PRIVATE_KEY }}" > ~/.ssh/bitbucket_key
+          chmod 600 ~/.ssh/gitlab_key
+          chmod 600 ~/.ssh/bitbucket_key
+          cat >> ~/.ssh/config <<EOF
+          Host gitlab.com
+            IdentityFile ~/.ssh/gitlab_key
+            StrictHostKeyChecking no
+          
+          Host bitbucket.org
+            IdentityFile ~/.ssh/bitbucket_key
+            StrictHostKeyChecking no
+          EOF
+      
+      - name: Push to GitLab
+        run: |
+          git remote add gitlab git@gitlab.com:flaggalagga/AIMapperProcessing.git
+          git push gitlab --all --force
+          git push gitlab --tags --force
+      
+      - name: Push to Bitbucket
+        run: |
+          git remote add bitbucket git@bitbucket.org:YOUR_USERNAME/AIMapperProcessing.git
+          git push bitbucket --all --force
+          git push bitbucket --tags --force
