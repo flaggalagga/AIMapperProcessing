@@ -36,11 +36,11 @@ jobs:
       - name: Push to GitLab
         run: |
           git remote add gitlab git@gitlab.com:flaggalagga/AIMapperProcessing.git
-          git push gitlab --all
-          git push gitlab --tags
+          git push gitlab --all --force
+          git push gitlab --tags --force
       
       - name: Push to Bitbucket
         run: |
           git remote add bitbucket git@bitbucket.org:YOUR_USERNAME/AIMapperProcessing.git
-          git push bitbucket --all
-          git push bitbucket --tags
+          git push bitbucket --all --force
+          git push bitbucket --tags --force
