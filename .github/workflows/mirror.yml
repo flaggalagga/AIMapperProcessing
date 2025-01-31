@@ -41,6 +41,6 @@ jobs:
       
       - name: Push to Bitbucket
         run: |
-          git remote add bitbucket git@bitbucket.org:YOUR_USERNAME/AIMapperProcessing.git
+          git remote add bitbucket git@bitbucket.org:flaggalagga/AIMapperProcessing.git
           git push bitbucket --all --force
           git push bitbucket --tags --force
