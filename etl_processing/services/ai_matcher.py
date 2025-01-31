@@ -2,9 +2,9 @@
 """AI-based text matching service using sentence transformers for fuzzy matching."""
 
 from typing import List, Dict, Optional, NamedTuple, Union
+from sentence_transformers import SentenceTransformer, util
 import torch
 import numpy as np
-from sentence_transformers import SentenceTransformer, util
 import logging
 import unicodedata
 from ..utils.text_processor import TextProcessor
@@ -35,19 +35,55 @@ class AIMatcherService:
         self.config = config or {}
         
         self.logger.info(f"Initializing AI matcher with model: {model_name}")
-        self.model = SentenceTransformer(model_name)
         
+        try:
+            self.model = SentenceTransformer(model_name)
+        except Exception as e:
+            self.logger.error(f"Failed to load SentenceTransformer: {e}")
+            self.model = None
+            self.option_embeddings = None
+            return
+
         self.existing_options = existing_options
         self.logger.info(f"Processing {len(existing_options)} existing options")
         
         # Normalize and compute embeddings for existing options
         self.normalized_options = [self._normalize_medical_term(opt) for opt in existing_options]
         self.logger.info("Computing embeddings for normalized options")
-        self.option_embeddings = self.model.encode(
-            self.normalized_options,
-            convert_to_tensor=False
-        )
-        self.logger.info("AI matcher initialization complete")
+        
+        try:
+            self.option_embeddings = self._compute_safe_embeddings(self.normalized_options)
+            self.logger.info("Embeddings computed successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to compute embeddings: {e}")
+            self.option_embeddings = None
+
+    def _compute_safe_embeddings(self, options: List[str]) -> np.ndarray:
+        """Safely compute embeddings with robust error handling.
+        
+        Args:
+            options: Normalized text options to embed
+
+        Returns:
+            NumPy array of embeddings
+        """
+        try:
+            embeddings = self.model.encode(
+                options,
+                convert_to_tensor=False
+            )
+            
+            # Ensure NumPy array with proper dimensions
+            if not isinstance(embeddings, np.ndarray):
+                embeddings = np.array(embeddings)
+            
+            if embeddings.ndim != 2:
+                raise ValueError(f"Unexpected embedding dimensions: {embeddings.ndim}")
+            
+            return embeddings
+        except Exception as e:
+            self.logger.error(f"Embedding computation error: {e}")
+            raise
 
     def _normalize_medical_term(self, text: str) -> str:
         """Normalize medical terms by mapping specific terms to common forms.
@@ -99,6 +135,11 @@ class AIMatcherService:
         Returns:
             MatchResult if match found above threshold, None otherwise
         """
+        # Check if AI matching is possible
+        if self.model is None or self.option_embeddings is None:
+            self.logger.warning("AI matcher not properly initialized. Skipping matching.")
+            return None
+
         try:
             similarity_threshold = similarity_threshold or self.config.get('ai', {}).get('similarity_threshold', 0.7)
             self.logger.info(f"Finding best match for: '{value}'")

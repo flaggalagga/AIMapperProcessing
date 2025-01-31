@@ -1,39 +1,78 @@
 # tests/test_ai_matcher.py
 """Unit tests for AI-based text matching service."""
 import pytest
-import numpy as np
-import torch
-from unittest.mock import Mock, patch
-from etl_processing.services.ai_matcher import AIMatcherService
-
-@pytest.fixture
-def mock_embeddings():
-    return np.array([
-        [1.0, 0.0],
-        [0.0, 1.0],
-        [0.5, 0.5]
-    ])
-
-@pytest.fixture
-def ai_matcher():
-    with patch('sentence_transformers.SentenceTransformer') as mock:
-        model = Mock()
-        model.encode.return_value = np.array([[1.0, 0.0], [0.0, 1.0], [0.5, 0.5]])
-        mock.return_value = model
-        return AIMatcherService(['Neige dure', 'Neige molle', 'Neige poudreuse'])
+import logging
+from etl_processing.services.ai_matcher import AIMatcherService, MatchResult
 
 class TestAIMatcher:
-    def test_normalize_text(self, ai_matcher):
-            from etl_processing.utils.text_processor import TextProcessor
-            assert TextProcessor.normalize_text('NEIGE-DURE') == 'neige-dure'
+    def test_initialization_basic(self):
+        """Test basic initialization of AIMatcherService."""
+        options = ['Neige dure', 'Neige molle', 'Neige poudreuse']
+        matcher = AIMatcherService(options)
+        
+        assert matcher.model is not None, "Model should be initialized"
+        assert matcher.option_embeddings is not None, "Embeddings should be computed"
+        assert len(matcher.existing_options) == 3, "All options should be preserved"
 
-    def test_find_best_match(self, ai_matcher):
-        with patch('torch.from_numpy', return_value=torch.tensor([[1.0, 0.0]])):
-            result = ai_matcher.find_best_match('DURE')
-            assert result is not None
-            assert result.confidence > 0.5
+    def test_medical_term_normalization(self):
+        """Test medical term normalization method."""
+        options = ['Neige dure']
+        matcher = AIMatcherService(options)
+        
+        # Test normalization of medical terms
+        normalized = matcher._normalize_medical_term('Tibia Perone')
+        assert 'tibia perone' in normalized
+        assert 'jambe' in normalized
 
-    def test_context_weights(self, ai_matcher):
-        context = {'Station': {'value': 'test', 'weight': 0.5}}
-        result = ai_matcher.find_best_match('DURE', context)
-        assert result is not None
+    def test_simple_match_scenarios(self):
+        """Test various matching scenarios."""
+        options = ['Neige dure', 'Neige molle', 'Neige poudreuse']
+        matcher = AIMatcherService(options)
+        
+        # Direct match test
+        match1 = matcher.find_best_match('Neige dure')
+        assert match1 is not None, "Direct match should be found"
+        assert match1.matched_value == 'Neige dure', "Matched value should be correct"
+        
+        # Partial match test
+        match2 = matcher.find_best_match('dure')
+        assert match2 is not None, "Partial match should be found"
+        
+        # Unrelated term test
+        match3 = matcher.find_best_match('completely unrelated')
+        assert match3 is None, "Unrelated term should not match"
+
+    def test_context_matching(self):
+        """Test matching with context."""
+        options = ['Neige dure', 'Neige molle', 'Neige poudreuse']
+        matcher = AIMatcherService(options)
+        
+        context = {
+            'Station': {'value': 'Courchevel', 'weight': 0.5},
+            'Difficulty': 'Intermediate'
+        }
+        
+        # Test match with context
+        match = matcher.find_best_match('Neige', context)
+        assert match is not None, "Match with context should be possible"
+        assert isinstance(match, MatchResult), "Result should be a MatchResult"
+
+    def test_initialization_with_empty_options(self):
+        """Test initialization with empty options."""
+        matcher = AIMatcherService([])
+        
+        # Validate that initialization doesn't fail
+        assert matcher.model is not None, "Model should still be initialized"
+
+    def test_logging_behavior(self, caplog):
+        """Test basic logging behavior."""
+        caplog.set_level(logging.INFO)
+        
+        options = ['Neige dure']
+        matcher = AIMatcherService(options)
+        
+        # Trigger a match to generate logs
+        matcher.find_best_match('Neige dure')
+        
+        # Check for specific log messages
+        assert any("Finding best match for" in record.message for record in caplog.records)

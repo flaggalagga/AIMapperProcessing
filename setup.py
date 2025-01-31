@@ -5,11 +5,11 @@ setup(
     version="0.1.0",
     packages=find_packages(),
     install_requires=[
-        "numpy>=1.26.3",
+        "numpy>=2.2.0",
         "python-dotenv",
         "mysql-connector-python",
         "sqlalchemy",
-        "torch>=2.1.2",
+        "torch>=2.0.0",
         "sentence-transformers",
         "pyyaml",
         "tqdm",
